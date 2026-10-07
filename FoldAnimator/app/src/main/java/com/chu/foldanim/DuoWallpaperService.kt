@@ -34,6 +34,15 @@ import kotlin.math.min
  */
 class DuoWallpaperService : WallpaperService() {
 
+    companion object {
+        /**
+         * 마지막 힌지 각도. 화면이 커버 ↔ 메인으로 바뀌면 배경화면 엔진이 새로 만들어질 수 있어서,
+         * 새 엔진이 첫 센서 값을 받기 전에도 올바른 상태(흐린 상태)로 시작하도록 공유합니다.
+         */
+        @Volatile
+        private var lastAngle = 180f
+    }
+
     override fun onCreateEngine(): Engine = DuoEngine()
 
     private inner class DuoEngine : Engine(), SensorEventListener,
@@ -51,6 +60,11 @@ class DuoWallpaperService : WallpaperService() {
         private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
         private val dimPaint = Paint()
         private val vignettePaint = Paint()
+        private val hudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textAlign = Paint.Align.CENTER
+            setShadowLayer(4f, 0f, 0f, Color.BLACK)
+        }
         private val srcRect = Rect()
         private val dstRect = RectF()
 
@@ -59,8 +73,8 @@ class DuoWallpaperService : WallpaperService() {
         private var inner = true
         private val knownAreas = mutableSetOf<Long>()
 
-        /** 센서를 아직 못 받았으면 펼친 것으로 간주 */
-        private var angle = 180f
+        private var angle = lastAngle
+        private var sensorEvents = 0L
         private var current = 1f
         private var target = 1f
         private var lastFrameNanos = 0L
@@ -125,6 +139,9 @@ class DuoWallpaperService : WallpaperService() {
 
         override fun onSensorChanged(event: SensorEvent) {
             angle = event.values[0]
+            lastAngle = angle
+            sensorEvents++
+            if (config.debugHud) draw()
             target = targetFor(angle)
             if (!animating && abs(target - current) > 0.001f) {
                 animating = true
@@ -219,6 +236,17 @@ class DuoWallpaperService : WallpaperService() {
                         Shader.TileMode.CLAMP,
                     )
                     canvas.drawRect(0f, 0f, w, h, vignettePaint)
+                }
+
+                if (config.debugHud) {
+                    hudPaint.textSize = 18f * density
+                    val lines = listOf(
+                        "각도 ${angle.toInt()}° · ${if (inner) "메인" else "커버"} 화면 · 표시 ${(current * 100).toInt()}%",
+                        "화면 ${width}×${height} · 센서 ${if (hingeSensor == null) "없음" else "이벤트 $sensorEvents"}",
+                    )
+                    lines.forEachIndexed { i, line ->
+                        canvas.drawText(line, w / 2f, h * 0.18f + i * 26f * density, hudPaint)
+                    }
                 }
             } finally {
                 holder.unlockCanvasAndPost(canvas)

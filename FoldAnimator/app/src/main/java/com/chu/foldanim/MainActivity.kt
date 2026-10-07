@@ -336,6 +336,21 @@ private fun SettingsScreen(
             }
         }
 
+        SectionCard(title = "문제 해결") {
+            SwitchRow(
+                title = "배경화면에 디버그 정보 표시",
+                subtitle = "홈 화면에 힌지 각도 · 커버/메인 판별 · 표시 % 를 띄웁니다",
+                checked = config.debugHud,
+                onCheckedChange = { onConfigChange(config.copy(debugHud = it)) },
+            )
+            Text(
+                "커버 화면에도 효과를 보려면 커버 화면 배경화면도 이 앱으로 설정되어 있어야 합니다. " +
+                    "(One UI는 커버/메인 배경화면을 따로 설정합니다)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         Text(
             "참고: 배경화면이 보이는 홈 화면에서 동작합니다. 앱 아이콘은 One UI 런처가 그리기 때문에 함께 움직이지는 않고, " +
                 "커버↔메인 화면 전환 순간의 짧은 검은 화면은 기기가 처리하는 부분이라 앱에서 없앨 수 없습니다.",

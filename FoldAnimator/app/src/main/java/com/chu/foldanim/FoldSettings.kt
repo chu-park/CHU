@@ -13,12 +13,14 @@ data class FoldConfig(
     val enabled: Boolean = true,
     val curve: List<Int> = FoldSettings.DEFAULT_CURVE,
     /** 커버 화면이 이 각도까지 펼쳐지면 완전히 흐려져 사라짐 */
-    val coverAngle: Int = 50,
+    val coverAngle: Int = 85,
     val blurDp: Int = 40,
     val zoomPct: Int = 25,
     val dimPct: Int = 85,
     val smoothMs: Int = 180,
     val imageVersion: Long = 0L,
+    /** 배경화면 위에 각도/화면/표시 % 를 띄워 동작 확인 */
+    val debugHud: Boolean = false,
 ) {
     /** 메인(안쪽) 화면: 힌지 각도에 따른 화면 표시 비율 (0.0 ~ 1.0). */
     fun innerRevealAt(angle: Float): Float {
@@ -57,12 +59,18 @@ object FoldSettings {
     private const val KEY_DIM = "dim_pct"
     private const val KEY_SMOOTH = "smooth_ms"
     private const val KEY_IMAGE_VERSION = "image_version"
+    private const val KEY_DEBUG = "debug_hud"
+    private const val KEY_DEFAULTS_VERSION = "defaults_version"
+
+    /** 기본값이 바뀌면 올려서, 예전 기본값으로 저장된 곡선/커버 각도를 새 기본값으로 바꿉니다. */
+    private const val DEFAULTS_VERSION = 2
 
     val CURVE_ANGLES = listOf(0, 30, 60, 90, 120, 150, 180)
-    val DEFAULT_CURVE = listOf(0, 0, 15, 45, 75, 95, 100)
+    /** 폴드는 약 90°에서 커버 → 메인 화면으로 바뀌므로, 메인 화면은 90° 근처에서 0%로 시작 */
+    val DEFAULT_CURVE = listOf(0, 0, 0, 5, 45, 85, 100)
 
     val PRESETS: List<Pair<String, List<Int>>> = listOf(
-        "기본" to DEFAULT_CURVE,
+        "기본(90° 전환)" to DEFAULT_CURVE,
         "선형" to listOf(0, 17, 33, 50, 67, 83, 100),
         "빠르게 선명" to listOf(0, 20, 55, 85, 100, 100, 100),
         "끝까지 흐리게" to listOf(0, 0, 5, 15, 35, 70, 100),
@@ -74,6 +82,13 @@ object FoldSettings {
     fun load(context: Context): FoldConfig {
         val p = prefs(context)
         val d = FoldConfig()
+        if (p.getInt(KEY_DEFAULTS_VERSION, 1) < DEFAULTS_VERSION) {
+            p.edit()
+                .remove(KEY_CURVE)
+                .remove(KEY_COVER_ANGLE)
+                .putInt(KEY_DEFAULTS_VERSION, DEFAULTS_VERSION)
+                .apply()
+        }
         return FoldConfig(
             enabled = p.getBoolean(KEY_ENABLED, d.enabled),
             curve = parseCurve(p.getString(KEY_CURVE, null)) ?: d.curve,
@@ -83,6 +98,7 @@ object FoldSettings {
             dimPct = p.getInt(KEY_DIM, d.dimPct),
             smoothMs = p.getInt(KEY_SMOOTH, d.smoothMs),
             imageVersion = p.getLong(KEY_IMAGE_VERSION, d.imageVersion),
+            debugHud = p.getBoolean(KEY_DEBUG, d.debugHud),
         )
     }
 
@@ -96,6 +112,8 @@ object FoldSettings {
             .putInt(KEY_DIM, c.dimPct)
             .putInt(KEY_SMOOTH, c.smoothMs)
             .putLong(KEY_IMAGE_VERSION, c.imageVersion)
+            .putBoolean(KEY_DEBUG, c.debugHud)
+            .putInt(KEY_DEFAULTS_VERSION, DEFAULTS_VERSION)
             .apply()
     }
 
