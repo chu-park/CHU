@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">폴드 애니메이션</string>
+    <string name="channel_name">폴드 애니메이션 실행 중</string>
+    <string name="notif_title">폴드 애니메이션 켜짐</string>
+    <string name="notif_text">접고 펼칠 때 애니메이션을 재생합니다</string>
+    <string name="notif_action_off">끄기</string>
+</resources>
