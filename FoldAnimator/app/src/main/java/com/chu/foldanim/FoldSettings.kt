@@ -3,31 +3,25 @@ package com.chu.foldanim
 import android.content.Context
 import android.content.SharedPreferences
 
-enum class AnimStyle(val label: String) {
-    CURTAIN("힌지 커튼"),
-    IRIS("원형 아이리스"),
-    FADE("페이드"),
-}
-
 /**
  * 앱 설정 값.
  *
- * [curve] 는 [FoldSettings.CURVE_ANGLES] 각 지점(0°, 30° … 180°)에서 화면을 몇 % 보여줄지(0~100) 입니다.
+ * [curve] 는 [FoldSettings.CURVE_ANGLES] 각 지점(0°, 30° … 180°)에서 메인 화면을 몇 % 선명하게 보여줄지(0~100) 입니다.
  * 그 사이 각도는 선형 보간합니다.
  */
 data class FoldConfig(
-    val enabled: Boolean = false,
-    val style: AnimStyle = AnimStyle.CURTAIN,
-    val onUnfold: Boolean = true,
-    val onFold: Boolean = true,
-    val coverReveal: Boolean = true,
-    val alwaysFromClosed: Boolean = true,
-    val durationMs: Int = 400,
-    val cornerDp: Int = 28,
+    val enabled: Boolean = true,
     val curve: List<Int> = FoldSettings.DEFAULT_CURVE,
+    /** 커버 화면이 이 각도까지 펼쳐지면 완전히 흐려져 사라짐 */
+    val coverAngle: Int = 50,
+    val blurDp: Int = 40,
+    val zoomPct: Int = 25,
+    val dimPct: Int = 85,
+    val smoothMs: Int = 180,
+    val imageVersion: Long = 0L,
 ) {
-    /** 힌지 각도에 따른 화면 표시 비율 (0.0 ~ 1.0). */
-    fun revealAt(angle: Float): Float {
+    /** 메인(안쪽) 화면: 힌지 각도에 따른 화면 표시 비율 (0.0 ~ 1.0). */
+    fun innerRevealAt(angle: Float): Float {
         val angles = FoldSettings.CURVE_ANGLES
         val a = angle.coerceIn(angles.first().toFloat(), angles.last().toFloat())
         for (i in 0 until angles.size - 1) {
@@ -41,29 +35,37 @@ data class FoldConfig(
         }
         return curve.last() / 100f
     }
+
+    /** 커버 화면: 접혀 있을 때 100%, [coverAngle] 까지 펼치면 0%. */
+    fun coverRevealAt(angle: Float): Float {
+        val t = (angle / coverAngle.coerceAtLeast(1)).coerceIn(0f, 1f)
+        return 1f - t * t * (3f - 2f * t)
+    }
+
+    fun revealAt(angle: Float, inner: Boolean): Float =
+        if (inner) innerRevealAt(angle) else coverRevealAt(angle)
 }
 
 object FoldSettings {
     private const val PREFS = "fold_settings"
 
     private const val KEY_ENABLED = "enabled"
-    private const val KEY_STYLE = "style"
-    private const val KEY_ON_UNFOLD = "on_unfold"
-    private const val KEY_ON_FOLD = "on_fold"
-    private const val KEY_COVER_REVEAL = "cover_reveal"
-    private const val KEY_ALWAYS_FROM_CLOSED = "always_from_closed"
-    private const val KEY_DURATION = "duration_ms"
-    private const val KEY_CORNER = "corner_dp"
     private const val KEY_CURVE = "curve"
+    private const val KEY_COVER_ANGLE = "cover_angle"
+    private const val KEY_BLUR = "blur_dp"
+    private const val KEY_ZOOM = "zoom_pct"
+    private const val KEY_DIM = "dim_pct"
+    private const val KEY_SMOOTH = "smooth_ms"
+    private const val KEY_IMAGE_VERSION = "image_version"
 
     val CURVE_ANGLES = listOf(0, 30, 60, 90, 120, 150, 180)
-    val DEFAULT_CURVE = listOf(0, 5, 20, 45, 70, 90, 100)
+    val DEFAULT_CURVE = listOf(0, 0, 15, 45, 75, 95, 100)
 
     val PRESETS: List<Pair<String, List<Int>>> = listOf(
         "기본" to DEFAULT_CURVE,
         "선형" to listOf(0, 17, 33, 50, 67, 83, 100),
-        "빠르게 열림" to listOf(0, 30, 60, 85, 100, 100, 100),
-        "늦게 열림" to listOf(0, 0, 5, 15, 35, 70, 100),
+        "빠르게 선명" to listOf(0, 20, 55, 85, 100, 100, 100),
+        "끝까지 흐리게" to listOf(0, 0, 5, 15, 35, 70, 100),
     )
 
     fun prefs(context: Context): SharedPreferences =
@@ -74,34 +76,27 @@ object FoldSettings {
         val d = FoldConfig()
         return FoldConfig(
             enabled = p.getBoolean(KEY_ENABLED, d.enabled),
-            style = runCatching { AnimStyle.valueOf(p.getString(KEY_STYLE, d.style.name)!!) }
-                .getOrDefault(d.style),
-            onUnfold = p.getBoolean(KEY_ON_UNFOLD, d.onUnfold),
-            onFold = p.getBoolean(KEY_ON_FOLD, d.onFold),
-            coverReveal = p.getBoolean(KEY_COVER_REVEAL, d.coverReveal),
-            alwaysFromClosed = p.getBoolean(KEY_ALWAYS_FROM_CLOSED, d.alwaysFromClosed),
-            durationMs = p.getInt(KEY_DURATION, d.durationMs),
-            cornerDp = p.getInt(KEY_CORNER, d.cornerDp),
             curve = parseCurve(p.getString(KEY_CURVE, null)) ?: d.curve,
+            coverAngle = p.getInt(KEY_COVER_ANGLE, d.coverAngle),
+            blurDp = p.getInt(KEY_BLUR, d.blurDp),
+            zoomPct = p.getInt(KEY_ZOOM, d.zoomPct),
+            dimPct = p.getInt(KEY_DIM, d.dimPct),
+            smoothMs = p.getInt(KEY_SMOOTH, d.smoothMs),
+            imageVersion = p.getLong(KEY_IMAGE_VERSION, d.imageVersion),
         )
     }
 
     fun save(context: Context, c: FoldConfig) {
         prefs(context).edit()
             .putBoolean(KEY_ENABLED, c.enabled)
-            .putString(KEY_STYLE, c.style.name)
-            .putBoolean(KEY_ON_UNFOLD, c.onUnfold)
-            .putBoolean(KEY_ON_FOLD, c.onFold)
-            .putBoolean(KEY_COVER_REVEAL, c.coverReveal)
-            .putBoolean(KEY_ALWAYS_FROM_CLOSED, c.alwaysFromClosed)
-            .putInt(KEY_DURATION, c.durationMs)
-            .putInt(KEY_CORNER, c.cornerDp)
             .putString(KEY_CURVE, c.curve.joinToString(","))
+            .putInt(KEY_COVER_ANGLE, c.coverAngle)
+            .putInt(KEY_BLUR, c.blurDp)
+            .putInt(KEY_ZOOM, c.zoomPct)
+            .putInt(KEY_DIM, c.dimPct)
+            .putInt(KEY_SMOOTH, c.smoothMs)
+            .putLong(KEY_IMAGE_VERSION, c.imageVersion)
             .apply()
-    }
-
-    fun setEnabled(context: Context, enabled: Boolean) {
-        prefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply()
     }
 
     private fun parseCurve(s: String?): List<Int>? {

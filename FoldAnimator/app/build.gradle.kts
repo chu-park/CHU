@@ -10,8 +10,8 @@ android {
 
     defaultConfig {
         applicationId = "com.chu.foldanim"
-        // TYPE_HINGE_ANGLE 센서는 Android 11(API 30)부터 제공됩니다.
-        minSdk = 30
+        // 블러(RenderEffect)를 위해 Android 12(API 31) 이상
+        minSdk = 31
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"

@@ -1,13 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 다른 앱 위에 애니메이션 마스크를 그리기 위한 권한 -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-
+    <uses-feature
+        android:name="android.software.live_wallpaper"
+        android:required="true" />
     <uses-feature
         android:name="android.hardware.sensor.hinge_angle"
         android:required="false" />
@@ -29,22 +25,18 @@
             </intent-filter>
         </activity>
 
+        <!-- 힌지 각도에 따라 블러·확대·디졸브되는 라이브 배경화면 -->
         <service
-            android:name=".FoldAnimationService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Plays an overlay animation that follows the foldable hinge angle while the device is folded or unfolded." />
-        </service>
-
-        <receiver
-            android:name=".BootReceiver"
-            android:exported="true">
+            android:name=".DuoWallpaperService"
+            android:exported="true"
+            android:label="@string/wallpaper_name"
+            android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.service.wallpaper.WallpaperService" />
             </intent-filter>
-        </receiver>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper" />
+        </service>
     </application>
 </manifest>
